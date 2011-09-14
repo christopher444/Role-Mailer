@@ -1,0 +1,130 @@
+<?php
+/*
+ * Role Mailer
+ *
+ * Send an E-Mail to a group of people selected by role
+ *
+ * vim: set ts=8 sw=2 tw=79 ft=php:
+ */
+
+function role_mailer_permission() {
+  return array(
+    'administer role_mailer' => array(
+      'title' => t('Access Role Mailer'), 
+      'description' => t('Send mails using the Role Mailer'),
+    ),
+  );
+}
+
+function role_mailer_menu() {
+  $items["admin/content/role_mailer"] = array(
+    'page callback' => 'role_mailer_page',
+    'access callback' => true,
+    'title' => t('Role Mailer'),
+    'type' => MENU_LOCAL_TASK
+  );
+  return $items;
+}
+
+function role_mailer_page() {
+  return drupal_get_form('role_mailer_form');
+}
+
+function role_mailer_form($form, &$form_state) {
+  $form['roles'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Roles'),
+    '#options' => user_roles(true)
+  );
+
+  $form['subject'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Subject'),
+    '#default_value' => variable_get('role_mailer_subject'),
+    '#required' => true,
+    '#description' => t('Note that the E-Mail will have :sender as sender which is specified in the site-settings', array(
+      ':sender' => variable_get('site_mail')
+    ))
+  );
+
+  $form['message'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Message'),
+    '#default_value' => variable_get('role_mailer_message'),
+    '#rows' => 20,
+    '#required' => true
+  );
+
+  $form['save'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save settings')
+  );
+
+  $form['save_and_send'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save settings and send mail to roles')
+  );
+
+  return $form;
+}
+
+function role_mailer_form_validate($form, &$form_state) {
+  if($form_state['values']['op'] == t('Save settings and send mail to roles')) {
+
+  }
+}
+
+function role_mailer_form_submit($form, &$form_state) {
+  variable_set('role_mailer_subject', $form_state['values']['subject']);
+  variable_set('role_mailer_message', $form_state['values']['message']);
+
+  drupal_set_message(t( "Settings saved" ));
+
+  switch ($form_state['values']['op']) {
+    case t('Save settings and send mail to roles'):
+      $operations = array();
+
+      # extract selected rows
+      $roles = array_filter($form_state['values']['roles']);
+      $users = role_mailer_load_users($roles);
+
+      foreach ($users as $user) {
+        $operations[] = array('role_mailer_send_to_user', array($user));
+      }
+
+      $batch = array(
+        'title' => t('Sending'),
+        'operations' => $operations
+      );
+
+      batch_set($batch);
+      break;
+  }
+}
+function role_mailer_load_users($roles=array()) {
+  $query = 'SELECT DISTINCT(ur.uid)
+    FROM {users_roles} as ur
+    WHERE ur.rid IN (:rids)
+    ';
+
+  $result = db_query($query, array(":rids" => array_keys($roles)));
+  foreach($result as $row) {
+    $uids[] = $row->uid;
+  }
+
+  return user_load_multiple($uids);
+}
+
+function role_mailer_send_to_user($user=null) {
+  drupal_set_message(t('Sending message to :mail', array(':mail' => $user->mail)));
+  drupal_mail('role_mailer', 'mass_message', 'nr+foo@vortrieb.net', 'DE', $form_state['values']);
+}
+
+function role_mailer_mail($key, &$message, $params) {
+  switch ($key) {
+    case 'mass_message':
+      $message["subject"] = variable_get('role_mailer_subject');
+      $message["body"][] = variable_get('role_mailer_message');
+      break;
+  }
+}

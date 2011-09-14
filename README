@@ -1,0 +1,16 @@
+# Role Mailer 0.5
+
+This adds a tab at admin/content 'Role Mailer' where you can select Roles,
+enter subject and a message and send them to all users of those roles. The
+message and and subject are saved in case there are only minor changes to
+each batch of email.
+
+## Dependencies
+
+- Drupal 7
+
+## To Dos
+
+- provie more documentary
+- add simple test? 
+- make ready for drupal.org
